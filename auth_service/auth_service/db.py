@@ -15,22 +15,17 @@ from .models import Base
 def init_db() -> Engine:
     """TODO"""
     try: 
-        os.makedirs(current_app.instance_path)
+        os.makedirs(current_app.config['DATABASE_PATH'])
     except OSError:
         pass
     
     #see https://docs.sqlalchemy.org/en/20/core/engines.html#sqlite
-    engine = create_engine(current_app.config['DATABASE_URI'], echo=True)
+    engine = create_engine(current_app.config['DATABASE_URI'], echo=current_app.config['SQLALCHEMY_ECHO'])
     #metadata is a collection of tables (or subclasses of Base)
     #equal to emitting CREATE TABLE for all subclasses of Base class to the target database
     Base.metadata.create_all(engine) 
 
     return engine
-
-# @click.command('init-db')
-# def init_db_command() -> None:
-#     init_db()
-#     click.echo('Initialized the database...')
 
 def get_db() -> Session:
     """TODO"""
