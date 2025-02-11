@@ -20,7 +20,7 @@ def test_db(app: Flask):
         db = get_db()
         assert db is get_db()
         
-        #checking session is closed is cumbersome
+        #checking session id closed is cumbersome
         #just check whether the g object doesn't have the closed session anymore
         close_db()
         assert 'db' not in g

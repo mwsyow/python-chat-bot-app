@@ -8,21 +8,29 @@ from flask.testing import FlaskClient
 from ..auth_service.app import create_app
 from ..config import TestingConfig
 
+def pytest_addoption(parser):
+    parser.addoption(
+        '--sqlecho', 
+        action='store_true', 
+        help='Option to enable SQLAlchemy echo. Default is False.'
+    )
+
+
 @pytest.fixture
-def app() -> Generator[Flask, None, None]:
+def app(request: pytest.FixtureRequest) -> Generator[Flask, None, None]:
     """TODO"""
     
     with tempfile.TemporaryDirectory() as temp_dir:
         
-        app = create_app()
+        temp_app = create_app()
         
-        app.instance_path = temp_dir
+        temp_app.instance_path = temp_dir
         
-        app.config.from_object(TestingConfig(temp_dir, 'database.sqlite'))
+        test_conf = TestingConfig(temp_dir, 'database.sqlite')
         
-        yield app
-    
-@pytest.fixture 
-def client(app: Flask) -> FlaskClient:
-    """TODO"""
-    return app.test_client()
+        if request.config.getoption('--sqlecho'):
+            test_conf.SQLALCHEMY_ECHO = True
+        
+        temp_app.config.from_object(test_conf)
+        
+        yield temp_app

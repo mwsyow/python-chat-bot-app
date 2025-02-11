@@ -13,6 +13,7 @@ class Config(object):
 class DevelopmentConfig(Config):
     SECRET_KEY = 'dev'
     SQLALCHEMY_ECHO = True
+    DEBUG = True
     
 
 class ProductionConfig(Config):
@@ -25,7 +26,7 @@ class TestingConfig(Config):
     TESTING = True
     DEBUG = True
     SECRET_KEY = 'test'
-    SQLALCHEMY_ECHO = True 
+    SQLALCHEMY_ECHO = False 
     
     def __init__(self, database_path: str = '', database: str = ':memory:'):
         super().__init__(database_path=database_path)

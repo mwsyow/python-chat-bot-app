@@ -89,10 +89,9 @@ def login():
             flash('invalid username or password')
         else:
             session.clear()
-            session['id'] = user.id
+            session['user_id'] = user.id
             logger.debug('redirecting to index endpoint...')
-            return redirect(url_for('home.index'))
-        
+        return redirect(url_for('home.index'))
     return 'welcome to login page'
 
 @bp.route('/logout', methods=['GET'])
