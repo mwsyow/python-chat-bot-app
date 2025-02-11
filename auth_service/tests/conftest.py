@@ -1,5 +1,5 @@
 """TODO"""
-import os
+import functools
 import pytest
 import tempfile
 from typing import Generator
@@ -34,3 +34,42 @@ def app(request: pytest.FixtureRequest) -> Generator[Flask, None, None]:
         temp_app.config.from_object(test_conf)
         
         yield temp_app
+
+
+class UserAuth:
+    
+    def __init__(self, client: FlaskClient):
+        """TODO"""
+        self.client = client
+    
+    def init(self, username: str, password: str):
+        self.username = username
+        self.password = password
+        self._register()
+        return self
+    
+    def _register(self):
+        self.client.post('/register', data={
+                'username': self.username,
+                'password': self.password
+            })
+    
+    def login(self):
+        self.client.post('/login', data={
+            'username': self.username,
+            'password': self.password
+        })
+        
+    def logout(self):
+        self.client.get('/logout')
+
+
+@pytest.fixture
+def init_user(app: Flask) -> UserAuth:
+    return UserAuth(app.test_client())
+
+@pytest.fixture
+def authenticate_user(init_user: UserAuth):
+    def _authenticate_user(username:str, password):
+        return init_user.init(username, password)
+    return _authenticate_user
