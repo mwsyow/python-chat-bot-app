@@ -2,7 +2,7 @@
 import pytest
 
 from http import HTTPStatus
-from flask import url_for, Flask, session, g, get_flashed_messages
+from flask import Flask, session, g, get_flashed_messages
 from flask.testing import FlaskClient
 
 from sqlalchemy import select
@@ -16,6 +16,7 @@ class TestRegister:
     
     @pytest.fixture()
     def setup(self, authenticate_user) -> FlaskClient:
+        """TODO"""
         current_user: UserAuth = authenticate_user('mws', 'mws')
         client = current_user.client
         return client
@@ -43,6 +44,7 @@ class TestRegister:
         'mws', ''
     ])    
     def test_invalid_register(self, setup: FlaskClient, password: str):
+        """TODO"""
         with setup as client:
             client.post('/register', data={
                 'username': 'mws',
@@ -54,6 +56,7 @@ class TestRegister:
         'Mws', 'MWS'
     ]) 
     def test_valid_register(self, setup: FlaskClient, username: str):
+        """TODO"""
         with setup as client:
             response = client.post('/register', data={
                 'username': username,
@@ -69,12 +72,13 @@ class TestLogin:
     """TODO"""
     @pytest.fixture(autouse=True)
     def setup(self, authenticate_user: UserAuth) -> None:
+        """TODO"""
         current_user: UserAuth = authenticate_user('mws', 'mws')
         self.client = current_user.client
         
     def test_login(self):
         """TODO"""
-        with  self.client as c:
+        with self.client as c:
             assert c.get('/login').status_code == HTTPStatus.OK
             response = c.post('/login', data={
                 'username': 'mws', 
@@ -85,7 +89,7 @@ class TestLogin:
             assert response.request.path == '/'
             
             assert c.get('/').status_code == HTTPStatus.OK
-            assert session['user_id'] is not None
+            assert 'user_id' in session
             assert g.user is not None
     
     @pytest.mark.parametrize('username, password', [
@@ -104,14 +108,34 @@ class TestLogin:
             assert get_flashed_messages()[0] == 'invalid username or password'
     
 class TestLogout:
+    """TODO"""
     
     @pytest.fixture(autouse=True)
     def setup(self, authenticate_user):
+        """TODO"""
         current_user: UserAuth = authenticate_user('mws', 'mws')
         current_user.login()
+        self.client = current_user.client
     
     def test_logout(self):
-        pass
+        """TODO"""
+        with self.client.session_transaction() as session:
+            assert 'user_id' in session
+        
+        with self.client as c:
+            
+            response = c.get('/logout', follow_redirects=True)
+        
+            assert len(response.history) == 1
+            assert response.request.path == '/login'
+        
+        with self.client.session_transaction() as session:
+            assert 'user_id' not in session
+            
+            
+
+            
+        
         
               
         

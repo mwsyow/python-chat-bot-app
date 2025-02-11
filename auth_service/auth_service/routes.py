@@ -21,6 +21,7 @@ from .logging import logger
 bp = Blueprint('home', __name__)
 
 def require_login(view):
+    """TODO"""
     @wraps(view)
     def _require_login(**kwargs):
         if g.user is None:
@@ -42,13 +43,14 @@ def current_user() -> None:
 @bp.route('/', methods=['GET'])
 @require_login
 def index():
+    """TODO"""
     logger.info('Entering index endpoint...')
     return f'Welcome to my first website {str(g.user)}'
 
 @bp.route('/register', methods=['GET', 'POST'])
 def register():
-    logger.info('Entering register endpoint...')
     """TODO"""
+    logger.info('Entering register endpoint...')
     if request.method == 'POST':
         #TODO maybe add pydantic model here for validation
         username = request.form.get('username')
@@ -95,11 +97,10 @@ def login():
     return 'welcome to login page'
 
 @bp.route('/logout', methods=['GET'])
-@require_login
 def logout():
     """TODO"""
     session.clear()
-    return redirect(url_for('home.index'))
+    return redirect(url_for('home.login'))
     
 @bp.route('/oauth/authorize', methods=['GET', 'POST'])
 @require_login

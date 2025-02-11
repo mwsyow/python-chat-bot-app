@@ -9,6 +9,7 @@ from ..auth_service.app import create_app
 from ..config import TestingConfig
 
 def pytest_addoption(parser):
+    """TODO"""
     parser.addoption(
         '--sqlecho', 
         action='store_true', 
@@ -37,30 +38,31 @@ def app(request: pytest.FixtureRequest) -> Generator[Flask, None, None]:
 
 
 class UserAuth:
+    """TODO"""
     
     def __init__(self, client: FlaskClient):
         """TODO"""
         self.client = client
     
-    def init(self, username: str, password: str):
+    def register(self, username: str, password: str):
+        """TODO"""
         self.username = username
         self.password = password
-        self._register()
+        self.client.post('/register', data={
+            'username': self.username,
+            'password': self.password
+        })
         return self
     
-    def _register(self):
-        self.client.post('/register', data={
-                'username': self.username,
-                'password': self.password
-            })
-    
     def login(self):
+        """TODO"""
         self.client.post('/login', data={
             'username': self.username,
             'password': self.password
         })
         
     def logout(self):
+        """TODO"""
         self.client.get('/logout')
 
 
@@ -70,6 +72,6 @@ def init_user(app: Flask) -> UserAuth:
 
 @pytest.fixture
 def authenticate_user(init_user: UserAuth):
-    def _authenticate_user(username:str, password):
-        return init_user.init(username, password)
+    def _authenticate_user(username:str, password: str):
+        return init_user.register(username, password)
     return _authenticate_user
