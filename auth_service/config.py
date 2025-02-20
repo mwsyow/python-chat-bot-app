@@ -2,6 +2,7 @@ import os
 class Config(object):
     DATABASE = 'database.sqlite'
     TESTING = False
+    AUTHLIB_INSECURE_TRANSPORT='1'
     
     def __init__(self, database_path: str):
         self.DATABASE_PATH = database_path
@@ -12,15 +13,15 @@ class Config(object):
     
 class DevelopmentConfig(Config):
     SECRET_KEY = 'dev'
-    SQLALCHEMY_ECHO = True
+    SQLALCHEMY_ECHO = False
     DEBUG = True
-    
 
 class ProductionConfig(Config):
     SECRET_KEY = 'prod'
     HOST = ...
     PORT = ...
     SQLALCHEMY_ECHO = False
+    AUTHLIB_INSECURE_TRANSPORT='0'
 
 class TestingConfig(Config):
     TESTING = True

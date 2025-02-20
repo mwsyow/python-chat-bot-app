@@ -1,21 +1,27 @@
 """TODO"""
+from flask import Flask
+from sqlalchemy.exc import NoResultFound
 from authlib.integrations.flask_oauth2 import AuthorizationServer
 from authlib.oauth2.rfc6749.requests import OAuth2Request
 from sqlalchemy import (
     select
 )
-from flask import (
-    current_app, g
-)
+
 from .db import get_db
 from .models import (
     Client, Token
 )
+
+from .grants import AuthorizationCodeGrant
     
 def query_client(client_id: str) -> Client:
     """TODO"""
     stmt = select(Client).where(Client.client_id==client_id)
-    return get_db().scalars(stmt).one()
+    try:
+        client = get_db().scalars(stmt).one()
+    except NoResultFound as e:
+        raise NoResultFound(f'no client with client id: {client_id} was found when one is required.')
+    return client
 
 def save_token(token: dict, request: OAuth2Request) -> None:
     """TODO"""
@@ -29,10 +35,15 @@ def save_token(token: dict, request: OAuth2Request) -> None:
     get_db().add(tok)
     get_db().commit()
 
-def init_server() -> None:
-    """TODO"""
 
-    server = AuthorizationServer(current_app, query_client=query_client, save_token=save_token)
+auth_server = AuthorizationServer(query_client=query_client, save_token=save_token)
+
+def config_oauth(app: Flask):
+    auth_server.init_app(app)
     
-    g.auth_server = server
+    auth_server.register_grant(AuthorizationCodeGrant)
+    
+    
+    
+
     

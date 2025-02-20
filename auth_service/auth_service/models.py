@@ -70,7 +70,10 @@ class Client(Base, OAuth2ClientMixin):
     
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     #secondary attr used to denote uni-directional relationship Client --> User and Client </- User
-    users: Mapped[List['User']] = relationship(secondary=user_client_table)
+    # users: Mapped[List['User']] = relationship(secondary=user_client_table)
+    user_id: Mapped[UUID] = mapped_column(ForeignKey('user.id'))
+    user: Mapped['User'] = relationship()
+    
     
     def __repr__(self) -> str:
         return f"Client(id={self.id}, client_id={self.client_id})"

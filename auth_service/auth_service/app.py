@@ -8,10 +8,6 @@ def create_app():
     """TODO"""
 
     app = Flask(__name__)
-
-    from .auth_server import init_server
-    with app.app_context():
-        init_server()
     
     from .routes import bp
     app.register_blueprint(bp)
@@ -20,6 +16,9 @@ def create_app():
     #everytime request context ends all functions registered to
     #app.teardown_appcontext will be executed
     app.teardown_appcontext(close_db)
+    
+    from .auth_server import config_oauth
+    config_oauth(app)
     
     return app
 
@@ -34,6 +33,7 @@ def main(args: argparse.Namespace) -> None:
     elif args.env == 'prod':
         cfg = ProductionConfig(app.instance_path)
     
+    os.environ['AUTHLIB_INSECURE_TRANSPORT'] = cfg.AUTHLIB_INSECURE_TRANSPORT
     
     app.config.from_object(cfg)
     app.run()
