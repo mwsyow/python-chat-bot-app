@@ -1,16 +1,19 @@
 import pytest
-import time
+import base64
 
-from typing import Type, Any
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy import select
-from flask.testing import FlaskClient
-from .conftest import UserAuth
 
-from ..auth_service.models import Client, User, AuthorizationCode
+from .conftest import UserAuth, get_user_id, get_object, get_auth_code
+
+from ..auth_service.models import Client, AuthorizationCode, Token
 from ..auth_service.db import get_db
 
-
+        
+@pytest.fixture(autouse=True)
+def mock_insecure_transport(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv('AUTHLIB_INSECURE_TRANSPORT', '1')
+    
 class TestCreateClient:
     """TODO"""
     
@@ -43,22 +46,7 @@ class TestCreateClient:
 
                 assert len(oauth_client.client_metadata['grant_types']) == len_gt
                 assert (oauth_client.client_secret == '') == cs_not_empty
-            
-
-def get_user_id(client: FlaskClient) -> User:
-    with client.session_transaction() as s:
-        return s['user_id']
-    
-def get_object(obj: Type, *args, num_instances: str = 'one') -> Any:
-    stmt = select(obj).where(*args)
-    assert num_instances in ['one', 'all']
-    return getattr(get_db().scalars(stmt), num_instances)()
-
-@pytest.fixture(autouse=True)
-def mock_insecure_transport(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv('AUTHLIB_INSECURE_TRANSPORT', '1')
-    
-@pytest.mark.usefixtures('mock_insecure_transport')
+   
 class TestAuthorize:
     """TODO"""
         
@@ -124,10 +112,12 @@ class TestAuthorize:
                 data={
                     'confirm': confirm
                 }
-            )
+            )            
             if confirm:
+                code = get_auth_code(resp.headers['Location'])
                 assert get_object(AuthorizationCode, 
                     AuthorizationCode.client_id == client.client_id,
+                    AuthorizationCode.code == code,
                     num_instances='one'
                 ) != None
             else:
@@ -136,11 +126,82 @@ class TestAuthorize:
                         AuthorizationCode.client_id == client.client_id,
                         num_instances='one'
                     )
-                
-                
+
+def create_token_request(headers: dict, data: dict,
+    client_id: str, client_secret: str=None, is_basic: bool=False) -> str:
+    if is_basic:
+        assert client_id is not None and client_secret is not None
+        credentials = f'{client_id}:{client_secret}'
+        enc_credentials = base64.b64encode(credentials.encode()).decode()
+        
+        headers.update({
+            "Authorization": f"Basic {enc_credentials}"
+        })
+    else:
+        data.update({
+            'client_id': client_id,
+            'client_secret': client_secret
+        })
+    return headers, data
+
+               
 class TestToken:
     """TODO"""
-    pass            
+    @pytest.fixture(autouse=True)
+    def setup(self, authenticate_user) -> None:
+        """TODO"""
+        user: UserAuth = authenticate_user('mws', 'mws')
+        user.login()
+        self.user = user
+    
+    @pytest.mark.parametrize('token_endpoint_auth_method', [
+        'client_secret_post', 'client_secret_basic'
+    ])
+    def test_token(self, token_endpoint_auth_method: str):
+        """TODO"""
+        with self.user.client as c:
+            self.user.create_client(token_endpoint_auth_method=token_endpoint_auth_method)
+            user_id = get_user_id(c)
+            client: Client = get_object(Client, 
+                Client.user_id==user_id, 
+                num_instances='one'
+            )
+            resp = c.post('/oauth/authorize', 
+                query_string={
+                    'response_type': self.user._default_client_metadata['response_type'],
+                    'client_id': client.client_id,
+                    'scope': self.user._default_client_metadata['scope']
+                },
+                data={
+                    'confirm': 1
+                }
+            )
             
+            url = resp.headers['Location']
+            code = get_auth_code(url)
+            headers = {
+                'Content-Type': "application/x-www-form-urlencoded"
+            }
+            data={
+                    'grant_type':self.user._default_client_metadata['grant_type'],
+                    'scope': self.user._default_client_metadata['scope'],
+                    'code': code 
+                }
+            
+            headers, data = create_token_request(
+                                headers=headers, data=data,
+                                client_id=client.client_id, 
+                                client_secret=client.client_secret,
+                                is_basic='basic' in token_endpoint_auth_method
+                            )
+            resp = c.post('/oauth/token',headers=headers, data=data)
+            access_token = resp.get_json()['access_token']
+            assert  get_object(Token,
+                        Token.client_id==client.client_id,
+                        Token.access_token==access_token,
+                        num_instances='one'
+                    ) != None
+
+
             
         

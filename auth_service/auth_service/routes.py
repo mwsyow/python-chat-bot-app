@@ -3,6 +3,7 @@ import time
 from functools import wraps
 from uuid import uuid4
 from werkzeug.security import gen_salt
+from authlib.integrations.flask_oauth2.requests import FlaskOAuth2Request
 from authlib.oauth2.rfc6749.util import extract_basic_authorization
 from sqlalchemy.exc import (
     IntegrityError, NoResultFound
@@ -178,7 +179,7 @@ def authorize():
     return auth_server.create_authorization_response(grant_user=grant_user)
 
 
-def get_client_id():
+def get_client_id(request: FlaskOAuth2Request):
     """TODO"""
     headers = request.headers
     client_id, _ = extract_basic_authorization(headers)
@@ -197,7 +198,7 @@ def issue_token():
     #BUG workaround ================================================
     flask_req = auth_server.create_oauth2_request(request)
     grant = auth_server.get_token_grant(flask_req)
-    client = auth_server.query_client(get_client_id())
+    client = auth_server.query_client(get_client_id(flask_req))
     grant.TOKEN_ENDPOINT_AUTH_METHODS = [client.token_endpoint_auth_method]
     #===============================================================
     return auth_server.create_token_response()

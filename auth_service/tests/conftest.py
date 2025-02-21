@@ -1,11 +1,17 @@
 """TODO"""
 import pytest
 import tempfile
-from typing import Generator
+from typing import Generator, Type, Any
 from flask import Flask
 from flask.testing import FlaskClient
+from sqlalchemy import select
+from urllib.parse import urlparse, parse_qsl
+
+from ..auth_service.models import User, Client
 from ..auth_service.app import create_app
 from ..config import TestingConfig
+from ..auth_service.db import get_db
+
 def pytest_addoption(parser):
     """TODO"""
     parser.addoption(
@@ -15,7 +21,7 @@ def pytest_addoption(parser):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='function')
 def app(request: pytest.FixtureRequest) -> Generator[Flask, None, None]:
     """TODO"""
     
@@ -36,16 +42,7 @@ def app(request: pytest.FixtureRequest) -> Generator[Flask, None, None]:
 
 
 class UserAuth:
-    """TODO"""
-    _default_client_metadata = {
-            'client_name': 'client_name',
-            'client_uri': 'http://localhost:5000/',
-            'grant_type': 'authorization_code',
-            'response_type': 'code',
-            'redirect_uri': 'http://localhost:5000/',
-            'scope': 'scope',
-            'token_endpoint_auth_method': 'none'
-        }        
+    """TODO"""      
     
     def __init__(self, client: FlaskClient, username: str, password: str):
         """TODO"""
@@ -56,6 +53,16 @@ class UserAuth:
             'username': self.username,
             'password': self.password
         })
+        
+        self._default_client_metadata = {
+            'client_name': 'client_name',
+            'client_uri': 'http://localhost:5000/',
+            'grant_type': 'authorization_code',
+            'response_type': 'code',
+            'redirect_uri': 'http://localhost:5000/',
+            'scope': 'scope',
+            'token_endpoint_auth_method': 'none'
+        }  
         
     def login(self):
         """TODO"""
@@ -71,9 +78,31 @@ class UserAuth:
     def create_client(self, **kwargs):
         self._default_client_metadata.update(kwargs)
         self.client.post('/oauth/create_client', data=self._default_client_metadata)
+        
+    def get_current_client(self) -> Client:
+        with self.client as c:
+            user_id = get_user_id(c)
+            client: Client = get_object(Client, 
+                Client.user_id==user_id, 
+                num_instances='one'
+            )
+            return client
 
+def get_user_id(client: FlaskClient) -> User:
+    with client.session_transaction() as s:
+        return s['user_id']
+    
+def get_object(obj: Type, *args, num_instances: str = 'one') -> Any:
+    stmt = select(obj).where(*args)
+    assert num_instances in ['one', 'all']
+    return getattr(get_db().scalars(stmt), num_instances)()
 
-@pytest.fixture
+def get_auth_code(url: str) -> str:
+    q = urlparse(url).query
+    code = dict(parse_qsl(q))['code']
+    return code
+
+@pytest.fixture(scope='function')
 def authenticate_user(app: Flask):
     def _authenticate_user(username:str, password: str):
         return UserAuth(app.test_client(), username, password)
