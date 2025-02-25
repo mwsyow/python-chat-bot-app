@@ -12,7 +12,13 @@ from .models import (
     Client, Token
 )
 
-from .grants import AuthorizationCodeGrant
+from .grants import (
+    AuthorizationCodeGrant, RefreshTokenGrant
+)
+
+from .endpoints import (
+    RevocationEndpoint, IntrospectionEndpoint
+)
     
 def query_client(client_id: str) -> Client:
     """TODO"""
@@ -42,6 +48,10 @@ def config_oauth(app: Flask):
     auth_server.init_app(app)
     
     auth_server.register_grant(AuthorizationCodeGrant)
+    auth_server.register_grant(RefreshTokenGrant)
+    
+    auth_server.register_endpoint(RevocationEndpoint)
+    auth_server.register_endpoint(IntrospectionEndpoint)
     
     
     

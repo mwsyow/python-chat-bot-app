@@ -1,8 +1,9 @@
 """TODO"""
+import time
 from sqlalchemy import select
 from authlib.oauth2.rfc6749 import grants
 
-from .models import AuthorizationCode, User
+from .models import AuthorizationCode, User, Token
 from .db import get_db
 
 class AuthorizationCodeGrant(grants.AuthorizationCodeGrant):
@@ -39,4 +40,21 @@ class AuthorizationCodeGrant(grants.AuthorizationCodeGrant):
     def authenticate_user(self, authorization_code: AuthorizationCode) -> User:
         """TODO"""
         return authorization_code.user
-        
+
+class RefreshTokenGrant(grants.RefreshTokenGrant):
+    def authenticate_refresh_token(self, refresh_token: str) -> Token:
+        """TODO"""
+        stmt = select(Token).where(Token.refresh_token==refresh_token)
+        token = get_db().scalars(stmt).one()
+        if token and token.is_refresh_token_active():
+            return token
+
+    def authenticate_user(self, credential: Token) -> User:
+        """TODO"""
+        stmt = select(User).where(User.id==credential.user_id)
+        return get_db().scalars(stmt).one()
+
+    def revoke_old_credential(self, credential: Token) -> None:
+        """TODO"""
+        credential.refresh_token_revoked_at=int(time.time())
+        get_db().commit()

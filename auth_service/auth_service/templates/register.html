@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block header %}
+  <h1>{% block title %}Register{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+  <form method="post">
+    <!-- Name (Required) -->
+    <label for="name">Name <span style="color: red;">*</span></label>
+    <input type="text" name="name" id="name" required>
+
+    <!-- First Name (Required) -->
+    <label for="first_name">First Name <span style="color: red;">*</span></label>
+    <input type="text" name="first_name" id="first_name" required>
+
+    <!-- Email (Required) -->
+    <label for="email">Email <span style="color: red;">*</span></label>
+    <input type="email" name="email" id="email" required>
+
+    <!-- Birthday (Optional) -->
+    <label for="birthday">Birthday</label>
+    <input type="date" name="birthday" id="birthday">
+
+    <!-- Nationality (Optional) -->
+    <label for="nationality">Nationality</label>
+    <input type="text" name="nationality" id="nationality">
+
+    <!-- Address (Optional) -->
+    <label for="address">Address</label>
+    <input type="text" name="address" id="address">
+
+        
+    <label for="username">Username <span style="color: red;">*</span></label>
+    <input name="username" id="username" required>
+
+
+    <!-- Password (With Eye Icon for Toggle) -->
+    <label for="password">Password <span style="color: red;">*</span></label>
+    <div style="position: relative;">
+      <input type="password" name="password" id="password" style="padding-right: 30px;">
+      <span id="togglePassword" onclick="togglePasswordVisibility()" 
+            style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); cursor: pointer;">
+        👁️
+      </span>
+    </div>
+
+    <input type="submit" value="Register">
+  </form>
+
+<!-- JavaScript for Show/Hide Password -->
+<script>
+  function togglePasswordVisibility() {
+    const passwordInput = document.getElementById('password');
+    const toggleIcon = document.getElementById('togglePassword');
+    if (passwordInput.type === 'password') {
+      passwordInput.type = 'text';
+      toggleIcon.textContent = '🙈'; // Hide icon
+    } else {
+      passwordInput.type = 'password';
+      toggleIcon.textContent = '👁️'; // Show icon
+    }
+  }
+</script>
+
+{% endblock %}

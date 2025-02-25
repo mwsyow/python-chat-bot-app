@@ -44,15 +44,21 @@ def app(request: pytest.FixtureRequest) -> Generator[Flask, None, None]:
 class UserAuth:
     """TODO"""      
     
-    def __init__(self, client: FlaskClient, username: str, password: str):
+    def __init__(self, client: FlaskClient, username: str, password: str, next: str):
         """TODO"""
         self.client = client
         self.username = username
         self.password = password
-        self.client.post('/register', data={
-            'username': self.username,
-            'password': self.password
-        })
+        self.client.post('/register', 
+            query_string={'next': next},
+            data={
+                'username': self.username,
+                'password': self.password,
+                'name': 'mws_name',
+                'first_name': 'mws_first_name',
+                'email':'mws123@gmail.com'
+            }
+        )
         
         self._default_client_metadata = {
             'client_name': 'client_name',
@@ -61,19 +67,22 @@ class UserAuth:
             'response_type': 'code',
             'redirect_uri': 'http://localhost:5000/',
             'scope': 'scope',
-            'token_endpoint_auth_method': 'none'
+            'token_endpoint_auth_method': 'client_secret_post'
         }  
         
-    def login(self):
+    def login(self, next: str = '/'):
         """TODO"""
-        self.client.post('/login', data={
-            'username': self.username,
-            'password': self.password
-        })
+        self.client.post('/login', 
+            query_string={'next': next},
+            data={
+                'username': self.username,
+                'password': self.password
+            }
+        )
         
     def logout(self):
         """TODO"""
-        self.client.get('/logout')
+        self.client.get('/logout', query_string={'next': '/login'})
         
     def create_client(self, **kwargs):
         self._default_client_metadata.update(kwargs)
@@ -104,6 +113,6 @@ def get_auth_code(url: str) -> str:
 
 @pytest.fixture(scope='function')
 def authenticate_user(app: Flask):
-    def _authenticate_user(username:str, password: str):
-        return UserAuth(app.test_client(), username, password)
+    def _authenticate_user(username:str, password: str, next: str='/login'):
+        return UserAuth(app.test_client(), username, password, next)
     return _authenticate_user

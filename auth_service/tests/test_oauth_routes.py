@@ -25,8 +25,8 @@ class TestCreateClient:
         self.current_user = current_user
     
     @pytest.mark.parametrize('grant_types, token_endpoint_auth_method, len_gt, cs_not_empty', [
-        ('gt\tgt', 'method', 1, False),
-        ('gt\ngt', None, 2, True)
+        ('authorization_code', 'none', 1, True),
+        ('authorization_code\nrefresh_token', 'client_secret_post', 2, False)
     ])
     def test_create_client(self, 
         grant_types: str, token_endpoint_auth_method: str,
@@ -66,7 +66,7 @@ class TestAuthorize:
     ])
     def test_authorize_get(self, scopes: list[str]):
         """TODO"""
-        client_scopes = '\n'.join(scopes)
+        client_scopes = ' '.join(scopes)
         
         with self.user1.client as c:
             self.user1.create_client(
@@ -86,7 +86,7 @@ class TestAuthorize:
                     'scope': scope
                 })
                 
-                assert scope.encode('utf-8') == resp.data
+                assert {'allowed_scope': scope} == resp.get_json()
     
     @pytest.mark.parametrize('confirm', [1, 0])
     def test_authorize_post(self, confirm: bool):

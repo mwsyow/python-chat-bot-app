@@ -12,7 +12,8 @@ from sqlalchemy import (
     select
 )
 from flask import (
-    Blueprint, session, url_for, request, redirect, g, flash
+    Blueprint, session, url_for, request, redirect, g, flash, render_template,
+    abort, jsonify
 )
 from .models import (
     User, PersonalInformation, Client
@@ -24,7 +25,26 @@ from .logging import logger
 
 from .auth_server import auth_server
 
+from .endpoints import (
+    RevocationEndpoint, IntrospectionEndpoint
+)
+from .request_handler import RegisterHandler, CreateClientHandler
+
 bp = Blueprint('home', __name__)
+
+
+@bp.errorhandler(400)
+def bad_request_error_handler(e):
+    return jsonify(error=str(e)), 400
+
+def get_next_url() -> str:
+    """TODO"""
+    next_url = request.args.get('next') or None
+    if not next_url:
+        next_url=request.url
+        
+    logger.debug(f'next URL: {next_url}')
+    return next_url 
 
 def require_login(view):
     """TODO"""
@@ -33,7 +53,8 @@ def require_login(view):
         if g.user is None:
             logger.debug('user is not logged in, redirecting to login endpoint...')
             #after successful login the user is redirected back to the view function
-            return redirect(url_for('home.login', next=request.endpoint))
+            next_url = get_next_url()
+            return redirect(url_for('home.login', next=next_url, redirect_uri=next_url))
         return view(**kwargs)
     return _require_login
     
@@ -46,9 +67,7 @@ def current_user() -> None:
     else :
         g.user = None
         
-def split_by_crlf(s: str):
-    return [v for v in s.splitlines() if v]
-        
+       
 @bp.route('/', methods=['GET'])
 @require_login
 def index():
@@ -62,39 +81,61 @@ def index():
     """
     return resp_str
 
+   
+
 @bp.route('/register', methods=['GET', 'POST'])
 def register():
     """TODO"""
     logger.info('Entering register endpoint...')
     if request.method == 'POST':
-        #TODO maybe add pydantic model here for validation
-        username = request.form.get('username')
-        password = request.form.get('password')
-        logger.debug(f'register input:\n username:{username}\n password:{password}')
-        #TODO dont forget to add PersonalInformation here
-        user = User(
-            id = uuid4(),
-            username=username,
-            password=password,
-            personal_info=PersonalInformation()
-        )
+        data = {
+            'username': request.form.get('username'),
+            'password': request.form.get('password'),
+            'name': request.form.get('name'),
+            'first_name': request.form.get('password'),
+            'email': request.form.get('email'),
+            'telephone_num': request.form.get('telephone_num') or None,
+            'birthday':request.form.get('birthday') or None,
+            'nationality': request.form.get('nationality') or None,
+            'address': request.form.get('address') or None
+        }
         try: 
+            handled_data = RegisterHandler(**data)
+            handled_data = handled_data.model_dump()
+            username = handled_data.pop('username')
+            password = handled_data.pop('password')
+            logger.debug(f'register input:\n username:{username}\n password:{password}')
+            
+            user = User(
+                id = gen_salt(24),
+                username=username,
+                password=password,
+                personal_info=PersonalInformation(**handled_data)
+            )
             get_db().add(user)
             get_db().commit()
         except IntegrityError as e:
             logger.error(e)
             flash(f'username {username} already exist')
+        except Exception as e:
+            logger.error(e)
+            flash(e)
         else:
-            logger.debug('redirecting to login endpoint...')
-            return redirect(url_for('home.login'))
-    return 'welcome to register page'
+            session.clear()
+            session['user_id'] = user.id
+            next_url = get_next_url()
+            return redirect(next_url)
+        finally:
+            get_db().rollback()
+        
+    return render_template('register.html')
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
     """TODO"""
     logger.info('Entering login endpoint...')
     
-    if request.method == 'POST':
+    if request.method == 'POST':  
         username = request.form.get('username')
         password = request.form.get('password')
         logger.debug(f'login input:\n username:{username}\n password:{password}')
@@ -107,54 +148,68 @@ def login():
         else:
             session.clear()
             session['user_id'] = user.id
-            logger.debug('redirecting to index endpoint...')
-        return redirect(url_for('home.index'))
-    return 'welcome to login page'
+            next_url = get_next_url()
+            return redirect(next_url)
+            
+    return render_template('login.html')
 
 @bp.route('/logout', methods=['GET'])
 def logout():
     """TODO"""
     session.clear()
-    return redirect(url_for('home.login'))
+    next_url = get_next_url()
+    return redirect(next_url)
 
 @bp.route('/oauth/create_client', methods=['GET', 'POST'])
 @require_login
 def create_client():
-    """TODO"""
+    """TODO
+    
+    MAKE 2 Version of error handling, first HTML form which already implemented.
+    second is API call which return error message in JSON form, use abort(400, description=err_message)
+    """
     logger.info('Entering create_client endpoint...')
-    if request.method == 'GET':
-        logger.debug(f'Handle GET request')
-        return 'Form submission in Progress...'
-    
-    client_id = gen_salt(24)
-    client_id_issued_at = int(time.time())
-    client = Client(
-        client_id=client_id,
-        client_id_issued_at=client_id_issued_at,
-        user=g.user
-    )
-    
-    form = request.form
-    
-    token_endpoint_auth_method = form.get('token_endpoint_auth_method', None)
-    
-    client_metadata = {
-        'client_name': form['client_name'],
-        'client_uri': form['client_uri'],
-        'grant_types': split_by_crlf(form['grant_type']),
-        'response_types': split_by_crlf(form['response_type']),
-        'redirect_uris': split_by_crlf(form['redirect_uri']),
-        'scope': form['scope'],
-        'token_endpoint_auth_method': token_endpoint_auth_method
-    }
-    
-    client.set_client_metadata(client_metadata)
-    
-    client.client_secret = gen_salt(48) if token_endpoint_auth_method else ''
-      
-    get_db().add(client)
-    get_db().commit()
-    return redirect(url_for('home.index'))
+    if request.method == 'POST':
+        client_id = gen_salt(24)
+        client_id_issued_at = int(time.time())
+        client = Client(
+            client_id=client_id,
+            client_id_issued_at=client_id_issued_at,
+            user=g.user
+        )
+        if request.is_json:
+            data = request.get_json()
+        else:
+            form = request.form
+            data = {
+                'client_name': form.get('client_name'),
+                'client_uri': form.get('client_uri'),
+                'grant_types':form.get('grant_type'),
+                'response_types':form.get('response_type'),
+                'redirect_uris':form.get('redirect_uri'),
+                'scope': form.get('scope'),
+                'token_endpoint_auth_method': form.get('token_endpoint_auth_method')
+            }
+        try:
+            handled_data = CreateClientHandler(**data)
+
+            handled_data = handled_data.model_dump()
+
+            client.set_client_metadata(handled_data)
+
+            client.client_secret = gen_salt(48) if handled_data.get('token_endpoint_auth_method') not in ['none', None] else ''
+            
+            get_db().add(client)
+            get_db().commit()
+        except Exception as e:
+            get_db().rollback()
+            logger.error(e)
+            flash(e) 
+            if request.is_json:
+                return {'error': e}
+        else:
+            return client.client_info
+    return render_template('create_client.html')
     
 @bp.route('/oauth/authorize', methods=['GET', 'POST'])
 @require_login
@@ -168,7 +223,7 @@ def authorize():
         grant = auth_server.get_consent_grant(end_user=g.user)
         client = grant.client
         scope = client.get_allowed_scope(grant.request.scope)
-        return scope
+        return {'allowed_scope': scope}
     #POST request handles user grants (allow/deny)
     #if user deny then grant_user == None, otherwise grant_user == current user
     logger.debug('Handle POST method')
@@ -202,3 +257,13 @@ def issue_token():
     grant.TOKEN_ENDPOINT_AUTH_METHODS = [client.token_endpoint_auth_method]
     #===============================================================
     return auth_server.create_token_response()
+
+@bp.route('/oauth/revoke', methods=['POST'])
+def revoke_token():
+    """TODO"""
+    return auth_server.create_endpoint_response(RevocationEndpoint.ENDPOINT_NAME)
+
+@bp.route('/oauth/introspect', methods=['POST'])
+def introspect_token():
+    """TODO"""
+    return auth_server.create_endpoint_response(IntrospectionEndpoint.ENDPOINT_NAME)

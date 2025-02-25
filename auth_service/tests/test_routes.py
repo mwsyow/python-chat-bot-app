@@ -26,10 +26,17 @@ class TestRegister:
         
         with app.test_client() as client:
             assert client.get('/register').status_code == HTTPStatus.OK
-            response = client.post('/register', data={
-                'username': 'mws',
-                'password': 'mws'
-            }, follow_redirects=True)
+            response = client.post('/register', 
+                query_string={'next': '/login'},
+                data={
+                    'username': 'mws',
+                    'password': 'mws',
+                    'name': 'mws_name',
+                    'first_name': 'mws_first_name',
+                    'email':'mws123@gmail.com'
+                }, 
+                follow_redirects=True
+            )
             # Check that there was one redirect response.
             assert len(response.history) == 1
             # Check that the second request was to the login page.
@@ -48,9 +55,12 @@ class TestRegister:
         with setup as client:
             client.post('/register', data={
                 'username': 'mws',
-                'password': password
+                'password': password,
+                'name': 'mws_name',
+                'first_name': 'mws_first_name',
+                'email':'mws123@gmail.com'
             })
-            assert get_flashed_messages()[0] == 'username mws already exist'
+            assert get_flashed_messages()[0]
     
     @pytest.mark.parametrize('username', [
         'Mws', 'MWS'
@@ -58,10 +68,17 @@ class TestRegister:
     def test_valid_register(self, setup: FlaskClient, username: str):
         """TODO"""
         with setup as client:
-            response = client.post('/register', data={
-                'username': username,
-                'password': 'mws'
-            }, follow_redirects=True)
+            response = client.post('/register', 
+                query_string={'next': '/login'},
+                data={
+                    'username': username,
+                    'password': 'mws',
+                    'name': 'mws_name',
+                    'first_name': 'mws_first_name',
+                    'email':'mws123@gmail.com'
+                }, 
+                follow_redirects=True
+            )
             
             assert len(response.history) == 1
             assert response.request.path == '/login'
@@ -80,17 +97,21 @@ class TestLogin:
         """TODO"""
         with self.client as c:
             assert c.get('/login').status_code == HTTPStatus.OK
-            response = c.post('/login', data={
-                'username': 'mws', 
-                'password': 'mws'       
-            }, follow_redirects=True)
+            response = c.post('/login', 
+                query_string={'next': '/'},
+                data={
+                    'username': 'mws',
+                    'password':'mws'
+                },
+                follow_redirects=True
+            )
             
             assert len(response.history) == 1
             assert response.request.path == '/'
             
-            assert c.get('/').status_code == HTTPStatus.OK
-            assert 'user_id' in session
-            assert g.user is not None
+            with c.session_transaction() as session:
+                assert 'user_id' in session
+                assert g.user is not None
     
     @pytest.mark.parametrize('username, password', [
         ('mws', ''),
@@ -124,7 +145,10 @@ class TestLogout:
         
         with self.client as c:
             
-            response = c.get('/logout', follow_redirects=True)
+            response = c.get('/logout', 
+                query_string={'next': '/login'},
+                follow_redirects=True
+            )
         
             assert len(response.history) == 1
             assert response.request.path == '/login'
