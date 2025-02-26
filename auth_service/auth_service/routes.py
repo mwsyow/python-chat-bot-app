@@ -3,6 +3,7 @@ import time
 from functools import wraps
 from uuid import uuid4
 from werkzeug.security import gen_salt
+from authlib.integrations.flask_oauth2 import current_token
 from authlib.integrations.flask_oauth2.requests import FlaskOAuth2Request
 from authlib.oauth2.rfc6749.util import extract_basic_authorization
 from sqlalchemy.exc import (
@@ -12,8 +13,7 @@ from sqlalchemy import (
     select
 )
 from flask import (
-    Blueprint, session, url_for, request, redirect, g, flash, render_template,
-    abort, jsonify
+    Blueprint, session, url_for, request, redirect, g, flash, render_template, jsonify
 )
 from .models import (
     User, PersonalInformation, Client
@@ -29,13 +29,8 @@ from .endpoints import (
     RevocationEndpoint, IntrospectionEndpoint
 )
 from .request_handler import RegisterHandler, CreateClientHandler
-
+from .resource_protector import require_oauth
 bp = Blueprint('home', __name__)
-
-
-@bp.errorhandler(400)
-def bad_request_error_handler(e):
-    return jsonify(error=str(e)), 400
 
 def get_next_url() -> str:
     """TODO"""
@@ -267,3 +262,10 @@ def revoke_token():
 def introspect_token():
     """TODO"""
     return auth_server.create_endpoint_response(IntrospectionEndpoint.ENDPOINT_NAME)
+
+@bp.route('/user')
+@require_oauth('profile')
+def user_profile():
+    """TODO"""
+    user: User = current_token.user
+    return jsonify(user.personal_info.to_dict())

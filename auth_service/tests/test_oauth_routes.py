@@ -1,12 +1,11 @@
 import pytest
-import base64
 
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy import select
 
-from .conftest import UserAuth, get_user_id, get_object, get_auth_code
+from .conftest import UserAuth, get_user_id, get_object, get_auth_code, create_token_request
 
-from ..auth_service.models import Client, AuthorizationCode, Token
+from ..auth_service.models import Client, AuthorizationCode, Token, User
 from ..auth_service.db import get_db
 
         
@@ -88,6 +87,7 @@ class TestAuthorize:
                 
                 assert {'allowed_scope': scope} == resp.get_json()
     
+    
     @pytest.mark.parametrize('confirm', [1, 0])
     def test_authorize_post(self, confirm: bool):
         """TODO"""
@@ -127,22 +127,6 @@ class TestAuthorize:
                         num_instances='one'
                     )
 
-def create_token_request(headers: dict, data: dict,
-    client_id: str, client_secret: str=None, is_basic: bool=False) -> str:
-    if is_basic:
-        assert client_id is not None and client_secret is not None
-        credentials = f'{client_id}:{client_secret}'
-        enc_credentials = base64.b64encode(credentials.encode()).decode()
-        
-        headers.update({
-            "Authorization": f"Basic {enc_credentials}"
-        })
-    else:
-        data.update({
-            'client_id': client_id,
-            'client_secret': client_secret
-        })
-    return headers, data
 
                
 class TestToken:
@@ -203,5 +187,34 @@ class TestToken:
                     ) != None
 
 
+class TestResourceProtector:
+    """TODO"""
+    @pytest.fixture(autouse=True)
+    def setup(self, authenticate_user) -> None:
+        """TODO"""
+        current_user: UserAuth = authenticate_user('mws', 'mws')
+        current_user.login()
+        current_user.create_client()
+        current_user.authorize()
+        current_user.token()
+        self.current_user = current_user
+        
+    def test_resource_protector(self):
+        """TODO"""           
+        with self.current_user.client as c:
+            headers={
+                'Authorization': f'Bearer {self.current_user.access_token}'
+            }
+            resp = c.get('/user', headers=headers)
+            resp_data = resp.get_json()
+            user_id = get_user_id(c)
+            user: User = get_object(User, 
+                User.id==user_id, 
+                num_instances='one'
+            )
+            assert user.personal_info.name == resp_data['name']
+            assert user.personal_info.first_name == resp_data['first_name']
+            assert user.personal_info.email == resp_data['email']
             
+        
         

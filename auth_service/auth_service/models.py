@@ -59,9 +59,15 @@ class PersonalInformation(Base):
         back_populates= 'personal_info'
     )
     
-    @property
-    def full_name(self) -> str:
-        return self.first_name + ' ' + self.name
+    def to_dict(self) -> dict:
+        return {
+            'name': self.name,
+            'first_name': self.first_name,
+            'email': self.email,
+            'telephone_num': self.telephone_num,
+            'birthday': self.nationality,
+            'address': self.address
+        }
     
     def __repr__(self) -> str:
         return f"PersonalInformation(id={self.id}, name={self.name}, first_name={self.first_name})"

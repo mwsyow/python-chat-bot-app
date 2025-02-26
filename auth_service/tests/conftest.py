@@ -1,4 +1,5 @@
 """TODO"""
+import base64
 import pytest
 import tempfile
 from typing import Generator, Type, Any
@@ -66,7 +67,7 @@ class UserAuth:
             'grant_type': 'authorization_code',
             'response_type': 'code',
             'redirect_uri': 'http://localhost:5000/',
-            'scope': 'scope',
+            'scope': 'profile',
             'token_endpoint_auth_method': 'client_secret_post'
         }  
         
@@ -86,16 +87,59 @@ class UserAuth:
         
     def create_client(self, **kwargs):
         self._default_client_metadata.update(kwargs)
-        self.client.post('/oauth/create_client', data=self._default_client_metadata)
+        resp = self.client.post('/oauth/create_client', data=self._default_client_metadata)
+        self.oauth_client = resp.get_json()
         
-    def get_current_client(self) -> Client:
-        with self.client as c:
-            user_id = get_user_id(c)
-            client: Client = get_object(Client, 
-                Client.user_id==user_id, 
-                num_instances='one'
-            )
-            return client
+    def authorize(self):
+        resp = self.client.post('/oauth/authorize', 
+            query_string={
+                'response_type': self._default_client_metadata['response_type'],
+                'client_id': self.oauth_client['client_id'],
+                'scope': self._default_client_metadata['scope']
+            },
+            data={
+                'confirm': 1
+            }
+        )
+        url = resp.headers['Location']
+        self.code = get_auth_code(url)
+    
+    def token(self):
+        headers = {
+                'Content-Type': "application/x-www-form-urlencoded"
+            }
+        data={
+                'grant_type':self._default_client_metadata['grant_type'],
+                'scope': self._default_client_metadata['scope'],
+                'code': self.code 
+            }
+        
+        headers, data = create_token_request(
+            headers=headers, data=data,
+            client_id=self.oauth_client['client_id'], 
+            client_secret=self.oauth_client['client_secret'],
+            is_basic='basic' in self._default_client_metadata['token_endpoint_auth_method']
+        )
+        resp = self.client.post('/oauth/token',headers=headers, data=data)
+        self.access_token = resp.get_json()['access_token']
+        
+
+def create_token_request(headers: dict, data: dict,
+    client_id: str, client_secret: str=None, is_basic: bool=False) -> str:
+    if is_basic:
+        assert client_id is not None and client_secret is not None
+        credentials = f'{client_id}:{client_secret}'
+        enc_credentials = base64.b64encode(credentials.encode()).decode()
+        
+        headers.update({
+            "Authorization": f"Basic {enc_credentials}"
+        })
+    else:
+        data.update({
+            'client_id': client_id,
+            'client_secret': client_secret
+        })
+    return headers, data
 
 def get_user_id(client: FlaskClient) -> User:
     with client.session_transaction() as s:
