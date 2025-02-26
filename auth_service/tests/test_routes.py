@@ -98,7 +98,7 @@ class TestLogin:
         with self.client as c:
             assert c.get('/login').status_code == HTTPStatus.OK
             response = c.post('/login', 
-                query_string={'next': '/'},
+                query_string={'next': '/register'},
                 data={
                     'username': 'mws',
                     'password':'mws'
@@ -107,7 +107,7 @@ class TestLogin:
             )
             
             assert len(response.history) == 1
-            assert response.request.path == '/'
+            assert response.request.path == '/register'
             
             with c.session_transaction() as session:
                 assert 'user_id' in session

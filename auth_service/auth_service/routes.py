@@ -156,7 +156,6 @@ def logout():
     return redirect(next_url)
 
 @bp.route('/oauth/create_client', methods=['GET', 'POST'])
-@require_login
 def create_client():
     """TODO
     
@@ -170,7 +169,6 @@ def create_client():
         client = Client(
             client_id=client_id,
             client_id_issued_at=client_id_issued_at,
-            user=g.user
         )
         if request.is_json:
             data = request.get_json()

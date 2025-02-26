@@ -72,23 +72,12 @@ class PersonalInformation(Base):
     def __repr__(self) -> str:
         return f"PersonalInformation(id={self.id}, name={self.name}, first_name={self.first_name})"
 
-# user_client_table = Table(
-#     'user_client_table',
-#     Base.metadata,
-#     Column('user_id', ForeignKey('user.id')),
-#     Column('client_id', ForeignKey('client.id'))
-# )    
-
 class Client(Base, OAuth2ClientMixin):
     """TODO"""
 
     __tablename__ = "client"
     
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    #secondary attr used to denote uni-directional relationship Client --> User and Client </- User
-    # users: Mapped[List['User']] = relationship(secondary=user_client_table)
-    user_id: Mapped[str] = mapped_column(ForeignKey('user.id'))
-    user: Mapped['User'] = relationship()
     client_type: Mapped[str] = mapped_column(nullable=True)    
     
     def __repr__(self) -> str:

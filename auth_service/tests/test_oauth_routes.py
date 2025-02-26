@@ -37,14 +37,11 @@ class TestCreateClient:
                 grant_type=grant_types, 
                 token_endpoint_auth_method=token_endpoint_auth_method
             )
-            with c.session_transaction() as session:
-                assert 'user_id' in session
-                user_id = session['user_id']
-                stmt = select(Client).where(Client.user_id==user_id)
-                oauth_client = get_db().scalars(stmt).one()
+            client_id = self.current_user.oauth_client['client_id']  
+            oauth_client: Client = get_object(Client, Client.client_id==client_id)
 
-                assert len(oauth_client.client_metadata['grant_types']) == len_gt
-                assert (oauth_client.client_secret == '') == cs_not_empty
+            assert len(oauth_client.client_metadata['grant_types']) == len_gt
+            assert (oauth_client.client_secret == '') == cs_not_empty
    
 class TestAuthorize:
     """TODO"""
@@ -72,16 +69,10 @@ class TestAuthorize:
                 scope=client_scopes, 
                 grant_types='authorization_code',        
             )
-            user_id = get_user_id(c)
-            for scope in scopes:
-                client: Client = get_object(Client, 
-                            Client.user_id==user_id, 
-                            num_instances='one'
-                        )
-                
+            for scope in scopes:                
                 resp = c.get('/oauth/authorize', query_string={
                     'response_type': self.user1._default_client_metadata['response_type'],
-                    'client_id': client.client_id,
+                    'client_id': self.user1.oauth_client['client_id'],
                     'scope': scope
                 })
                 
@@ -97,16 +88,12 @@ class TestAuthorize:
                 scope=client_scopes, 
                 grant_types='authorization_code',        
             )
-            user_id = get_user_id(c)
-            client: Client = get_object(Client, 
-                Client.user_id==user_id, 
-                num_instances='one'
-            )
+            client_id = self.user1.oauth_client['client_id']
 
             resp = c.post('/oauth/authorize', 
                 query_string={
                     'response_type': self.user1._default_client_metadata['response_type'],
-                    'client_id': client.client_id,
+                    'client_id': client_id,
                     'scope': 'email'
                 },
                 data={
@@ -116,14 +103,14 @@ class TestAuthorize:
             if confirm:
                 code = get_auth_code(resp.headers['Location'])
                 assert get_object(AuthorizationCode, 
-                    AuthorizationCode.client_id == client.client_id,
+                    AuthorizationCode.client_id == client_id,
                     AuthorizationCode.code == code,
                     num_instances='one'
                 ) != None
             else:
                 with pytest.raises(NoResultFound):
                     get_object(AuthorizationCode, 
-                        AuthorizationCode.client_id == client.client_id,
+                        AuthorizationCode.client_id == client_id,
                         num_instances='one'
                     )
 
@@ -145,43 +132,28 @@ class TestToken:
         """TODO"""
         with self.user.client as c:
             self.user.create_client(token_endpoint_auth_method=token_endpoint_auth_method)
-            user_id = get_user_id(c)
-            client: Client = get_object(Client, 
-                Client.user_id==user_id, 
-                num_instances='one'
-            )
-            resp = c.post('/oauth/authorize', 
-                query_string={
-                    'response_type': self.user._default_client_metadata['response_type'],
-                    'client_id': client.client_id,
-                    'scope': self.user._default_client_metadata['scope']
-                },
-                data={
-                    'confirm': 1
-                }
-            )
-            
-            url = resp.headers['Location']
-            code = get_auth_code(url)
+            self.user.authorize()
+            client_id = self.user.oauth_client['client_id']
+            client_secret = self.user.oauth_client['client_secret']
             headers = {
                 'Content-Type': "application/x-www-form-urlencoded"
             }
             data={
                     'grant_type':self.user._default_client_metadata['grant_type'],
                     'scope': self.user._default_client_metadata['scope'],
-                    'code': code 
+                    'code': self.user.code 
                 }
             
             headers, data = create_token_request(
                                 headers=headers, data=data,
-                                client_id=client.client_id, 
-                                client_secret=client.client_secret,
+                                client_id=client_id, 
+                                client_secret=client_secret,
                                 is_basic='basic' in token_endpoint_auth_method
                             )
             resp = c.post('/oauth/token',headers=headers, data=data)
             access_token = resp.get_json()['access_token']
             assert  get_object(Token,
-                        Token.client_id==client.client_id,
+                        Token.client_id==client_id,
                         Token.access_token==access_token,
                         num_instances='one'
                     ) != None
