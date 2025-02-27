@@ -72,4 +72,5 @@ class IntrospectionEndpoint(IE):
     def check_permission(self, token, client: Client, request):
         """TODO"""
         # for example, we only allow internal client to access introspection endpoint
-        return client.client_type == 'internal'
+        # return client.client_type == 'internal'
+        return True

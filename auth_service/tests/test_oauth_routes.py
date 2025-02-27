@@ -251,6 +251,119 @@ class TestResourceProtector:
             assert user.personal_info.name == resp_data['name']
             assert user.personal_info.first_name == resp_data['first_name']
             assert user.personal_info.email == resp_data['email']
+
+class TestEndpoints:
+    """TODO"""
+    @pytest.fixture(autouse=True)
+    def setup(self, authenticate_user):
+        """TODO"""
+        current_user: UserAuth = authenticate_user('mws', 'mws')
+        current_user.login()
+        current_user.create_client(
+            grant_type='authorization_code\nrefresh_token',
+            token_endpoint_auth_method='client_secret_basic'
+        )
+        current_user.authorize()
+        self.current_user = current_user
+    
+    @pytest.mark.parametrize('token_type_hint', ['access_token', 'refresh_token'])
+    def test_token_revocation(self, token_type_hint: str):
+        """TODO"""
+        with self.current_user.client as c:
             
+            self.current_user.token({
+                'grant_type':'authorization_code',
+                'scope': self.current_user._default_client_metadata['scope'],
+                'code': self.current_user.code 
+            })
         
+            token_id = self.current_user.oauth_token[token_type_hint]
+            
+            headers = {
+                'Content-Type': "application/x-www-form-urlencoded"
+            }
+            data = {
+                'token': token_id,
+                'token_type_hint': token_type_hint
+            }
+            headers, data = create_token_request(
+                headers=headers, data=data,
+                client_id=self.current_user.oauth_client['client_id'], 
+                client_secret=self.current_user.oauth_client['client_secret'],
+                is_basic='basic' in self.current_user._default_client_metadata['token_endpoint_auth_method']
+            )
+            
+            old_token: Token = get_object(Token,
+                Token.client_id==self.current_user.oauth_client['client_id'],
+                getattr(Token, token_type_hint)==token_id,
+                num_instances='one'
+            ) 
+                        
+            assert old_token.is_active()
+            
+            c.post('/oauth/revoke', data=data, headers=headers)
+            
+            new_token: Token= get_object(Token,
+                Token.client_id==self.current_user.oauth_client['client_id'],
+                getattr(Token, token_type_hint)==token_id,
+                num_instances='one'
+            ) 
+            
+            assert not new_token.is_active()
+            assert new_token.is_revoked()
+            
+    @pytest.mark.parametrize('token_type_hint', ['access_token', 'refresh_token'])
+    def test_token_invocation(self, token_type_hint: str):
+        """TODO"""
+        with self.current_user.client as c:
+
+            self.current_user.token({
+                'grant_type':'authorization_code',
+                'scope': self.current_user._default_client_metadata['scope'],
+                'code': self.current_user.code 
+            })
+            
+            user_id = get_user_id(c)
+            user: User = get_object(User, 
+                User.id==user_id, 
+                num_instances='one'
+            )
         
+            token_id = self.current_user.oauth_token[token_type_hint]
+            
+            token: Token= get_object(Token,
+                Token.client_id==self.current_user.oauth_client['client_id'],
+                getattr(Token, token_type_hint)==token_id,
+                num_instances='one'
+            ) 
+            
+            headers = {
+                'Content-Type': "application/x-www-form-urlencoded"
+            }
+            data = {
+                'token': token_id,
+                'token_type_hint': token_type_hint
+            }
+            headers, data = create_token_request(
+                headers=headers, data=data,
+                client_id=self.current_user.oauth_client['client_id'], 
+                client_secret=self.current_user.oauth_client['client_secret'],
+                is_basic='basic' in self.current_user._default_client_metadata['token_endpoint_auth_method']
+            )
+
+            resp = c.post('/oauth/introspect', data=data, headers=headers)
+            
+            true_data = {
+                'active': token.is_active(),
+                'client_id': token.client_id,
+                'token_type': token.token_type,
+                'username': user.username,
+                'scope': token.get_scope(),
+                'sub': user.id,
+                'aud': token.client_id,
+                'exp': token.issued_at+token.expires_in,
+                'iat': token.issued_at,
+            }
+            
+            assert resp.get_json() == true_data
+            
