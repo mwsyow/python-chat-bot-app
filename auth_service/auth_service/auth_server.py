@@ -1,4 +1,5 @@
 """TODO"""
+import os
 from flask import Flask
 from sqlalchemy.exc import NoResultFound
 from authlib.integrations.flask_oauth2 import AuthorizationServer
@@ -6,14 +7,13 @@ from authlib.oauth2.rfc6749.requests import OAuth2Request
 from sqlalchemy import (
     select
 )
-
 from .db import get_db
 from .models import (
     Client, Token
 )
 
 from .grants import (
-    AuthorizationCodeGrant, RefreshTokenGrant
+    AuthorizationCodeGrant, RefreshTokenGrant, ClientCredentialsGrant
 )
 
 from .endpoints import (
@@ -45,10 +45,14 @@ def save_token(token: dict, request: OAuth2Request) -> None:
 auth_server = AuthorizationServer(query_client=query_client, save_token=save_token)
 
 def config_oauth(app: Flask):
-    auth_server.init_app(app)
     
+    os.environ['AUTHLIB_INSECURE_TRANSPORT'] = app.config.get('AUTHLIB_INSECURE_TRANSPORT')
+    
+    auth_server.init_app(app)
+
     auth_server.register_grant(AuthorizationCodeGrant)
     auth_server.register_grant(RefreshTokenGrant)
+    auth_server.register_grant(ClientCredentialsGrant)
     
     auth_server.register_endpoint(RevocationEndpoint)
     auth_server.register_endpoint(IntrospectionEndpoint)

@@ -28,16 +28,12 @@ def app(request: pytest.FixtureRequest) -> Generator[Flask, None, None]:
     
     with tempfile.TemporaryDirectory() as temp_dir:
         
-        temp_app = create_app()
-        
-        temp_app.instance_path = temp_dir
-        
-        test_conf = TestingConfig(temp_dir, 'database.sqlite')
+        cfg = TestingConfig()
         
         if request.config.getoption('--sqlecho'):
-            test_conf.SQLALCHEMY_ECHO = True
-        
-        temp_app.config.from_object(test_conf)
+            cfg.SQLALCHEMY_ECHO = True
+            
+        temp_app = create_app(cfg, temp_dir, 'database.sqlite')
         
         yield temp_app
 
@@ -104,11 +100,14 @@ class UserAuth:
         url = resp.headers['Location']
         self.code = get_auth_code(url)
     
-    def token(self):
+    def token(self, data_input: dict[str, str] = None):
         headers = {
                 'Content-Type': "application/x-www-form-urlencoded"
             }
-        data={
+        
+        data = data_input
+        if not data:
+            data = {
                 'grant_type':self._default_client_metadata['grant_type'],
                 'scope': self._default_client_metadata['scope'],
                 'code': self.code 
@@ -121,8 +120,7 @@ class UserAuth:
             is_basic='basic' in self._default_client_metadata['token_endpoint_auth_method']
         )
         resp = self.client.post('/oauth/token',headers=headers, data=data)
-        self.access_token = resp.get_json()['access_token']
-        
+        self.oauth_token = resp.get_json()
 
 def create_token_request(headers: dict, data: dict,
     client_id: str, client_secret: str=None, is_basic: bool=False) -> str:

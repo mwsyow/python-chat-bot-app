@@ -1,13 +1,22 @@
 """TODO"""
 import os
 import argparse
-from flask import Flask
-from ..config import DevelopmentConfig, ProductionConfig, TestingConfig
 
-def create_app():
+from flask import Flask
+from ..config import DevelopmentConfig, ProductionConfig, TestingConfig, Config
+
+def create_app(cfg: Config, database_path: str = '', database: str = ''):
     """TODO"""
 
     app = Flask(__name__)
+    
+    if database_path:
+        cfg.DATABASE_PATH=database_path
+    else: cfg.DATABASE_PATH=app.instance_path
+    if database:
+        cfg.DATABASE
+
+    app.config.from_object(cfg)
     
     from .routes import bp
     app.register_blueprint(bp)
@@ -16,7 +25,7 @@ def create_app():
     #everytime request context ends all functions registered to
     #app.teardown_appcontext will be executed
     app.teardown_appcontext(close_db)
-    
+
     from .auth_server import config_oauth
     config_oauth(app)
     
@@ -24,18 +33,15 @@ def create_app():
 
 def main(args: argparse.Namespace) -> None:
     """TODO"""    
-    
-    app = create_app()
-    
-    cfg = DevelopmentConfig(app.instance_path)
+
+    cfg = DevelopmentConfig()
     if args.env == 'test':
         cfg = TestingConfig()
     elif args.env == 'prod':
-        cfg = ProductionConfig(app.instance_path)
+        cfg = ProductionConfig()
     
-    os.environ['AUTHLIB_INSECURE_TRANSPORT'] = cfg.AUTHLIB_INSECURE_TRANSPORT
-    
-    app.config.from_object(cfg)
+    app = create_app(cfg)
+   
     app.run()
 
 

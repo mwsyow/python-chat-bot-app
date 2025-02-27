@@ -1,11 +1,11 @@
 import os
 class Config(object):
     DATABASE = 'database.sqlite'
-    TESTING = False
+    TESTING = False 
     AUTHLIB_INSECURE_TRANSPORT='1'
-    
-    def __init__(self, database_path: str):
-        self.DATABASE_PATH = database_path
+    OAUTH2_REFRESH_TOKEN_GENERATOR=True
+    DATABASE_PATH=None
+    # OAUTH2_TOKEN_EXPIRES_IN
     
     @property
     def DATABASE_URI(self) -> str:
@@ -21,14 +21,11 @@ class ProductionConfig(Config):
     HOST = ...
     PORT = ...
     SQLALCHEMY_ECHO = False
-    AUTHLIB_INSECURE_TRANSPORT='0'
+    AUTHLIB_INSECURE_TRANSPORT=None
 
 class TestingConfig(Config):
     TESTING = True
     DEBUG = True
     SECRET_KEY = 'test'
     SQLALCHEMY_ECHO = False 
-    
-    def __init__(self, database_path: str = '', database: str = ':memory:'):
-        super().__init__(database_path=database_path)
-        self.DATABASE = database
+    DATABASE=':memory:'

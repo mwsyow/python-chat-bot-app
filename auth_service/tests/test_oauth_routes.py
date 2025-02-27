@@ -57,17 +57,17 @@ class TestAuthorize:
         self.user2 = user2
     
     
-    @pytest.mark.parametrize('scopes', [
-        ['email'], ['email','profile']
+    @pytest.mark.parametrize('scopes, grant_types', [
+        (['email'], 'authorization_code'), (['email','profile'], 'client_credentials')
     ])
-    def test_authorize_get(self, scopes: list[str]):
+    def test_authorize_get(self, scopes: list[str], grant_types: str):
         """TODO"""
         client_scopes = ' '.join(scopes)
         
         with self.user1.client as c:
             self.user1.create_client(
                 scope=client_scopes, 
-                grant_types='authorization_code',        
+                grant_type=grant_types,        
             )
             for scope in scopes:                
                 resp = c.get('/oauth/authorize', query_string={
@@ -86,7 +86,7 @@ class TestAuthorize:
         with self.user1.client as c:
             self.user1.create_client(
                 scope=client_scopes, 
-                grant_types='authorization_code',        
+                grant_type='authorization_code',        
             )
             client_id = self.user1.oauth_client['client_id']
 
@@ -128,7 +128,7 @@ class TestToken:
     @pytest.mark.parametrize('token_endpoint_auth_method', [
         'client_secret_post', 'client_secret_basic'
     ])
-    def test_token(self, token_endpoint_auth_method: str):
+    def test_authorization_code_grant(self, token_endpoint_auth_method: str):
         """TODO"""
         with self.user.client as c:
             self.user.create_client(token_endpoint_auth_method=token_endpoint_auth_method)
@@ -157,7 +157,71 @@ class TestToken:
                         Token.access_token==access_token,
                         num_instances='one'
                     ) != None
+    
+    def test_client_credentials_grant(self):
+        """TODO"""
+        with self.user.client as c:
+            self.user.create_client(
+                grant_type='client_credentials',
+                token_endpoint_auth_method='client_secret_basic'
+            )
+            self.user.token(
+                {'grant_type': 'client_credentials'}
+            )
 
+            assert  get_object(Token,
+                        Token.client_id==self.user.oauth_client['client_id'],
+                        Token.access_token==self.user.oauth_token['access_token'],
+                        num_instances='one'
+                    ) != None
+            
+    def test_refresh_token_grant(self):
+        """TODO"""
+        with self.user.client as c:
+            self.user.create_client(
+                grant_type='authorization_code\nrefresh_token',
+                token_endpoint_auth_method='client_secret_basic'
+            )
+            self.user.authorize()
+            self.user.token({
+                'grant_type':'authorization_code',
+                'scope': self.user._default_client_metadata['scope'],
+                'code': self.user.code 
+            })
+            old_access_token = self.user.oauth_token['access_token']
+            old_refresh_token = self.user.oauth_token['refresh_token']            
+
+            self.user.token({
+                'grant_type': 'refresh_token',
+                'refresh_token': old_refresh_token
+            })
+            # our implementation INCLUDE_NEW_REFRESH_TOKEN=True, meaning every request for this grant will generate new access and refresh token
+            
+
+            
+            new_access_token = self.user.oauth_token['access_token']
+            new_refresh_token = self.user.oauth_token['refresh_token']
+            
+            old_token: Token = get_object(Token,
+                            Token.client_id==self.user.oauth_client['client_id'],
+                            Token.access_token==old_access_token,
+                            Token.refresh_token==old_refresh_token,
+                            num_instances='one'
+                        ) 
+            new_token: Token = get_object(Token,
+                            Token.client_id==self.user.oauth_client['client_id'],
+                            Token.access_token==new_access_token,
+                            Token.refresh_token==new_refresh_token,
+                            num_instances='one'
+                        ) 
+            
+            assert new_access_token != old_access_token
+            assert new_refresh_token != old_refresh_token
+            
+            assert not old_token.is_active() and old_token.refresh_token_revoked_at != None
+            
+            assert new_token.is_active()
+                        
 
 class TestResourceProtector:
     """TODO"""
@@ -175,7 +239,7 @@ class TestResourceProtector:
         """TODO"""           
         with self.current_user.client as c:
             headers={
-                'Authorization': f'Bearer {self.current_user.access_token}'
+                'Authorization': f'Bearer {self.current_user.oauth_token['access_token']}'
             }
             resp = c.get('/user', headers=headers)
             resp_data = resp.get_json()

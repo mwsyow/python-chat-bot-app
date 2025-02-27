@@ -101,14 +101,13 @@ class Token(Base, OAuth2TokenMixin):
     __tablename__ = "token"
     
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    user_id: Mapped[str] = mapped_column(ForeignKey('user.id'))
+    user_id: Mapped[str] = mapped_column(ForeignKey('user.id'), nullable=True)
     user: Mapped['User'] = relationship()
     
-    def is_refresh_token_active(self):
-        if self.is_revoked():
+    def is_active(self) -> True:
+        if self.is_revoked() or self.is_expired():
             return False
-        expires_at = self.issued_at + self.expires_in 
-        return expires_at >= time.time()
+        return True
 
 
 

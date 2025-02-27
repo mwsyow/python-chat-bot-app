@@ -53,15 +53,12 @@ class IntrospectionEndpoint(IE):
 
     def introspect_token(self, token: Token):
         """TODO"""
-        is_active = True
-        if token.is_revoked() or token.is_expired():
-            is_active = False
         
         stmt = select(User).where(User.id==token.user_id)
         cur_user = get_db().scalars(stmt).one()
         
         return {
-            'active': is_active,
+            'active': token.is_active(),
             'client_id': token.client_id,
             'token_type': token.token_type,
             'username': cur_user.username,

@@ -42,11 +42,13 @@ class AuthorizationCodeGrant(grants.AuthorizationCodeGrant):
         return authorization_code.user
 
 class RefreshTokenGrant(grants.RefreshTokenGrant):
+    """TODO"""
+    INCLUDE_NEW_REFRESH_TOKEN=True
     def authenticate_refresh_token(self, refresh_token: str) -> Token:
         """TODO"""
         stmt = select(Token).where(Token.refresh_token==refresh_token)
         token = get_db().scalars(stmt).one()
-        if token and token.is_refresh_token_active():
+        if token and token.is_active():
             return token
 
     def authenticate_user(self, credential: Token) -> User:
@@ -58,3 +60,6 @@ class RefreshTokenGrant(grants.RefreshTokenGrant):
         """TODO"""
         credential.refresh_token_revoked_at=int(time.time())
         get_db().commit()
+        
+class ClientCredentialsGrant(grants.ClientCredentialsGrant):
+    """TODO"""
