@@ -45,8 +45,8 @@ def save_token(token: dict, request: OAuth2Request) -> None:
 auth_server = AuthorizationServer(query_client=query_client, save_token=save_token)
 
 def config_oauth(app: Flask):
-    
-    os.environ['AUTHLIB_INSECURE_TRANSPORT'] = app.config.get('AUTHLIB_INSECURE_TRANSPORT')
+    if app.config.get('AUTHLIB_INSECURE_TRANSPORT'):
+        os.environ['AUTHLIB_INSECURE_TRANSPORT'] = app.config.get('AUTHLIB_INSECURE_TRANSPORT')
     
     auth_server.init_app(app)
 
