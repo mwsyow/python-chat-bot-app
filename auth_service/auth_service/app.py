@@ -3,6 +3,9 @@ import os
 import argparse
 
 from flask import Flask
+from dotenv import load_dotenv
+load_dotenv()
+
 from ..config import DevelopmentConfig, ProductionConfig, TestingConfig, Config
 
 def create_app(cfg: Config, database_path: str = '', database: str = ''):
@@ -42,7 +45,7 @@ def main(args: argparse.Namespace) -> None:
     
     app = create_app(cfg)
    
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=os.environ['AUTH_SERVICE_PORT'])
 
 
 if __name__ == '__main__':
