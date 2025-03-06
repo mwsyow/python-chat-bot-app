@@ -5,6 +5,7 @@ services:
     env_file: ./.env
     environment:
       AUTH_SERVICE_DB_PASSWORD_FILE: /run/secrets/${AUTH_SERVICE_DB_PASSWORD_FILE}
+      AUTH_SERVICE_SECRET_KEY_FILE: /run/secrets/${AUTH_SERVICE_SECRET_KEY_FILE} # for production
     depends_on:
       db:
         condition: service_started
@@ -19,6 +20,7 @@ services:
       - external_network
     secrets:
       - auth_service_db_password
+      - auth_service_secret_key
   
   db: 
     image: postgres
@@ -60,3 +62,5 @@ networks:
 secrets:
   auth_service_db_password:
     file: ./secrets/${AUTH_SERVICE_DB_PASSWORD_FILE}
+  auth_service_secret_key:
+    file: ./secrets/${AUTH_SERVICE_SECRET_KEY_FILE}

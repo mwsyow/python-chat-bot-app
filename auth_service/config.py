@@ -3,6 +3,14 @@ from sqlalchemy import URL
 from dotenv import load_dotenv
 load_dotenv()
 
+
+def read_secret_file(path: str) -> str:
+    try:
+        with open(path, 'r') as file:
+            return file.read().strip()
+    except FileNotFoundError:
+        return None
+
 class Config(object):
     SERVICE_PORT = os.environ['AUTH_SERVICE_PORT']
 
@@ -38,24 +46,24 @@ class Config(object):
     
     @property
     def DB_PASSWORD(self) -> str:
-        try:
-            with open(self.DB_PASSWORD_FILE, 'r') as file:
-                return file.read().strip()
-        except FileNotFoundError:
-            return None
+        return read_secret_file(self.DB_PASSWORD_FILE)
     
 class DevelopmentConfig(Config):
     SECRET_KEY = 'dev'
-    SQLALCHEMY_ECHO = True
+    SQLALCHEMY_ECHO = False
     DEBUG = True
 
 class ProductionConfig(Config):
     IS_BEHIND_PROXY = True
-    SECRET_KEY = 'prod'
-    HOST = ...
-    PORT = ...
+    SECRET_KEY_FILE = os.environ['AUTH_SERVICE_SECRET_KEY_FILE']
+    
     SQLALCHEMY_ECHO = False
     AUTHLIB_INSECURE_TRANSPORT=None
+    
+    @property
+    def SECRET_KEY(self) -> str:
+        return read_secret_file(self.SECRET_KEY_FILE)
+        
 
 class TestingConfig(Config):
     DIALECT_DRIVER='sqlite'
