@@ -13,12 +13,7 @@ from flask import (
 from .models import Base
 
 def init_db() -> Engine:
-    """TODO"""
-    try: 
-        os.makedirs(current_app.config['DATABASE_PATH'])
-    except OSError:
-        pass
-    
+    """TODO"""    
     #see https://docs.sqlalchemy.org/en/20/core/engines.html#sqlite
     engine = create_engine(current_app.config['DATABASE_URI'], echo=current_app.config['SQLALCHEMY_ECHO'])
     #metadata is a collection of tables (or subclasses of Base)

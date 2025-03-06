@@ -2,9 +2,8 @@
 import os
 import argparse
 
+from werkzeug.middleware.proxy_fix import ProxyFix
 from flask import Flask
-from dotenv import load_dotenv
-load_dotenv()
 
 from ..config import DevelopmentConfig, ProductionConfig, TestingConfig, Config
 
@@ -13,13 +12,25 @@ def create_app(cfg: Config, database_path: str = '', database: str = ''):
 
     app = Flask(__name__)
     
-    if database_path:
-        cfg.DATABASE_PATH=database_path
-    else: cfg.DATABASE_PATH=app.instance_path
+    if 'sqlite' in cfg.DIALECT_DRIVER:
+        if database_path:
+            cfg.DB_PATH=database_path
+        else: cfg.DB_PATH=app.instance_path
+        try: 
+            os.makedirs(cfg.DB_PATH)
+        except OSError:
+            pass
+        
     if database:
-        cfg.DATABASE
+        cfg.DB_NAME=database
 
     app.config.from_object(cfg)
+    
+    #Tells Flask app whether it is behind a proxy
+    if cfg.IS_BEHIND_PROXY:
+        app.wsgi_app = ProxyFix(
+            app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
+        )
     
     from .routes import bp
     app.register_blueprint(bp)
@@ -31,6 +42,7 @@ def create_app(cfg: Config, database_path: str = '', database: str = ''):
 
     from .auth_server import config_oauth
     config_oauth(app)
+    
     
     return app
 
@@ -45,7 +57,7 @@ def main(args: argparse.Namespace) -> None:
     
     app = create_app(cfg)
    
-    app.run(host='0.0.0.0', port=os.environ['AUTH_SERVICE_PORT'])
+    app.run(host='0.0.0.0', port=cfg.SERVICE_PORT)
 
 
 if __name__ == '__main__':
