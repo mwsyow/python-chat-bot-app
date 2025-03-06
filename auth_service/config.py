@@ -59,8 +59,14 @@ class ProductionConfig(Config):
 
 class TestingConfig(Config):
     DIALECT_DRIVER='sqlite'
+    DB_USERNAME = None
+    DB_PASSWORD_FILE = ''
+    DB_HOST = None
+    DB_PORT = None
+    DB_NAME = ''
+    DB_PATH = None
+
     TESTING = True
     DEBUG = True
     SECRET_KEY = 'test'
     SQLALCHEMY_ECHO = True
-    DATABASE=':memory:'

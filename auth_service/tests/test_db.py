@@ -10,8 +10,7 @@ from ..auth_service.db import init_db, get_db, close_db
 def test_init_db(app: Flask):
     """TODO"""
     with app.app_context():
-        init_db()
-    assert os.path.exists(os.path.join(app.config['DATABASE_PATH'], app.config['DATABASE']))
+        assert init_db()
     
 def test_db(app: Flask):
     """TODO"""

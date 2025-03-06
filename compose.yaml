@@ -1,5 +1,4 @@
 services:
-
   auth_service:
     build: ./auth_service/
     hostname: auth_service
@@ -38,7 +37,7 @@ services:
   nginx:
     build : ./nginx/
     ports:
-      - "8080:8080"
+      - "${NGINX_PORT}:${NGINX_PORT}"
     depends_on:
       - auth_service
     develop:
