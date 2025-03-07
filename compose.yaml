@@ -9,6 +9,7 @@ services:
     depends_on:
       db:
         condition: service_started
+        restart: true
     command: --env=${WORK_ENV}
     develop:
       watch:
@@ -35,6 +36,12 @@ services:
       - internal_network
     secrets:
       - auth_service_db_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
 
   nginx:
     build : ./nginx/

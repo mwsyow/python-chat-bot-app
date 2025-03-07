@@ -31,7 +31,7 @@ FROM python:3.12-slim AS builder-image
 
 WORKDIR /app
 
-Run apt-get update &&\
+RUN apt-get update &&\
     apt-get install -y libpq-dev gcc
 
 RUN python -m venv /opt/venv
@@ -45,7 +45,7 @@ FROM python:3.12-slim AS final-image
 
 WORKDIR /app
 
-Run apt-get update &&\
+RUN apt-get update &&\
     apt-get install -y libpq-dev gcc &&\
     rm -rf /var/lib/apt/lists/*
 

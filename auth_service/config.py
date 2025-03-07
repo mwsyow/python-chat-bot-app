@@ -52,6 +52,8 @@ class DevelopmentConfig(Config):
     SECRET_KEY = 'dev'
     SQLALCHEMY_ECHO = False
     DEBUG = True
+    IS_BEHIND_PROXY = True
+
 
 class ProductionConfig(Config):
     IS_BEHIND_PROXY = True
